@@ -1,0 +1,14 @@
+{
+  "title": "Custom field",
+  "description": "A Mokuji component that provides custom fields functionality.",
+  "type": "manual",
+  "dbUpdates": true,
+  "versions": [
+    {
+      "version": "0.0.1-alpha",
+      "date": "2013-08-05",
+      "description": "First version, implements a JSON based field definition.",
+      "changes": []
+    }
+  ]
+}

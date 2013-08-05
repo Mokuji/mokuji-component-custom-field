@@ -1,4 +1,3 @@
-mk-custom-fields
-================
+# Component: `custom_field`
 
-A Mokuji component that provides custom fields functionality.
+_A Mokuji component that provides custom fields functionality._
