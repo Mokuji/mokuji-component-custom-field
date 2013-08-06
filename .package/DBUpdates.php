@@ -10,7 +10,29 @@ class DBUpdates extends \components\update\classes\BaseDBUpdates
   protected
     $component = 'custom_field',
     $updates = array(
+      '0.0.1-alpha' => '0.0.2-alpha'
     );
+  
+  public function update_to_0_0_2_alpha($current_version, $forced)
+  {
+    
+    try{
+      
+      mk('Sql')->query("
+        ALTER TABLE `#__custom_field_values`
+          ADD COLUMN `target_pk` varchar(255) NOT NULL after `configuration_id`,
+          ADD INDEX `target_pk` (`configuration_id`, `target_pk`),
+          DROP INDEX `key`,
+          ADD UNIQUE INDEX `key` (`configuration_id`, `target_pk`(150), `key`(100))
+      ");
+      
+    }catch(\exception\Sql $ex){
+      //When it's not forced, this is a problem.
+      //But when forcing, ignore this.
+      if(!$forced) throw $ex;
+    }
+    
+  }
   
   public function install_0_0_1_alpha($dummydata, $forced)
   {

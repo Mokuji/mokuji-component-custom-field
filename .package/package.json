@@ -5,6 +5,12 @@
   "dbUpdates": true,
   "versions": [
     {
+      "version": "0.0.2-alpha",
+      "date": "2013-08-06",
+      "description": "Updated values table to include the target primary key(s) and implemented form rendering.",
+      "changes": []
+    },
+    {
       "version": "0.0.1-alpha",
       "date": "2013-08-05",
       "description": "First version, implements a JSON based field definition.",
