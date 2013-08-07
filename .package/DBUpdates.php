@@ -10,8 +10,29 @@ class DBUpdates extends \components\update\classes\BaseDBUpdates
   protected
     $component = 'custom_field',
     $updates = array(
-      '0.0.1-alpha' => '0.0.2-alpha'
+      '0.0.1-alpha' => '0.0.2-alpha',
+      '0.0.2-alpha' => '0.0.3-alpha'
     );
+  
+  public function update_to_0_0_3_alpha($current_version, $forced)
+  {
+    
+    try{
+      
+      mk('Sql')->query("
+        ALTER TABLE `#__custom_field_configurations`
+          ADD COLUMN `alternative` varchar(255) NULL after `model_name`,
+          DROP INDEX `model_name`,
+          ADD INDEX `alternative` (`component_name`(100), `model_name`(130), `alternative`(20))
+      ");
+      
+    }catch(\exception\Sql $ex){
+      //When it's not forced, this is a problem.
+      //But when forcing, ignore this.
+      if(!$forced) throw $ex;
+    }
+    
+  }
   
   public function update_to_0_0_2_alpha($current_version, $forced)
   {

@@ -4,16 +4,16 @@ class Configurations extends \dependencies\BaseModel
 {
   
   protected static
-    
     $table_name = 'custom_field_configurations';
   
   #TODO
-  public static function find($component_name, $model_name)
+  public static function find($component_name, $model_name, $alternative=null)
   {
     
     return mk('Sql')->table('custom_field', 'Configurations')
       ->where('component_name', "'{$component_name}'")
       ->where('model_name', "'{$model_name}'")
+      ->where('alternative', $alternative === null ? 'NULL' : "'$alternative'")
       ->execute_single()
       
       ->is('empty', function($cfg)use($component_name, $model_name){
@@ -31,7 +31,8 @@ class Configurations extends \dependencies\BaseModel
           mk('Sql')->model('custom_field', 'Configurations')
             ->merge(array(
               'component_name' => $component_name,
-              'model_name' => $model_name
+              'model_name' => $model_name,
+              'alternative' => $alternative === null ? 'NULL' : "'$alternative'"
             ))
             ->save()
         );
@@ -133,15 +134,25 @@ class Configurations extends \dependencies\BaseModel
   public function get_fields()
   {
     
-    $fields = array();
+    $fields = Data();
     $definition = json_decode($this->field_definition->get('string'), true);
+    
     if($definition)
     {
       foreach($definition as $field){
-        $fields[$field['key']] = $field;
+        $field = Data($field);
+        $field->preferred_label->set(
+          $field->label->is_leafnode() ?
+            $field->label->get('string') :
+            $field->label->{mk('Language')->code}
+              ->otherwise($field->label->{'en-GB'})
+              ->get('string')
+        );
+        $fields->merge(array($field->key->get() => $field));
       }
     }
-    return Data($fields);
+    
+    return $fields;
     
   }
   
@@ -149,11 +160,88 @@ class Configurations extends \dependencies\BaseModel
   public function get_values($pks=null)
   {
     
+    //Prepare PK string.
+    raw($pks);
+    ksort($pks);
+    $pks_string = json_encode($pks);
+    
+    return mk('Sql')
+      ->table('custom_field', 'Values')
+      ->where('target_pk', "'$pks_string'")
+      ->where('configuration_id', $this->id)
+      ->execute()
+      ->map(function($value){
+        return array($value->key->get() => $value->value->get());
+      })
+      ->as_array();
+    
   }
   
   #TODO
-  public function set_values($pks)
+  public function set_values($pks, $values)
   {
+    
+    $values = Data($values);
+    
+    //Prepare PK string.
+    raw($pks);
+    ksort($pks);
+    $pks_string = json_encode($pks);
+    
+    //Loop the fields.
+    $value_models = array();
+    foreach($this->fields as $key => $field)
+    {
+      
+      //Validation.
+      $value = $values[$field->key->get()];
+      switch ($field->type->get()) {
+        case 'line':
+        case 'text':
+          $value->validate($field->preferred_label->get(), $field->required->get('boolean') ?
+            array('required', 'string', 'not_empty') :
+            array('string')
+          );
+          break;
+        
+        case 'checkbox':
+          $value->validate($field->preferred_label->get(), $field->required->get('boolean') ?
+            array('required', 'boolean') :
+            array('boolean')
+          );
+          break;
+      }
+      
+      //Store the value.
+      $config_id = $this->id;
+      $value_models[] = mk('Sql')
+        ->table('custom_field', 'Values')
+        ->where('target_pk', "'$pks_string'")
+        ->where('configuration_id', $config_id)
+        ->where('key', "'$key'")
+        ->execute_single()
+        
+        ->is('empty', function()use($pks_string, $config_id, $key){
+          return mk('Sql')
+            ->model('custom_field', 'Values')
+            ->merge(array(
+              'configuration_id' => $config_id,
+              'target_pk' => $pks_string,
+              'key' => $key
+            ));
+        })
+        
+        ->merge(array(
+          'value' => $value
+        ));
+      
+    }
+    
+    //All validation is done, now just save everything.
+    foreach($value_models as $model)
+      $model->save();
+    
+    return $this;
     
   }
   
@@ -176,17 +264,10 @@ class Configurations extends \dependencies\BaseModel
       if($field->type->get('string') == 'checkbox')
         $options['options'] = array(1);
       
-      //Get label.
-      $label = $field->label->is_leafnode() ?
-        $field->label->get('string') :
-        $field->label->{mk('Language')->code}
-          ->otherwise($field->label->{'en-GB'})
-          ->get('string');
-      
       //Create the field.
       $field_obj = new $classes[$field->type->get('string')](
         $field->key->get('string'),
-        $label,
+        $field->preferred_label->get('string'),
         $this->target_model,
         $options
       );
@@ -197,6 +278,12 @@ class Configurations extends \dependencies\BaseModel
     }
     
     return $this;
+    
+  }
+  
+  #TODO
+  public function render_values($pks=null)
+  {
     
   }
   
@@ -219,11 +306,7 @@ class Configurations extends \dependencies\BaseModel
     
     $builder->render($options);
     
-  }
-  
-  #TODO
-  public function render_values($pks=null)
-  {
+    return $this;
     
   }
   

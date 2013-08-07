@@ -25,5 +25,10 @@ class Json extends \dependencies\BaseComponent
       https://github.com/Tuxion/mokuji/wiki/Json.php
     
   */
+ 
+ public function create_test($data, $params)
+ {
+    return array($data, $params);
+ }
   
 }

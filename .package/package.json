@@ -5,6 +5,12 @@
   "dbUpdates": true,
   "versions": [
     {
+      "version": "0.0.3-alpha",
+      "date": "2013-08-07",
+      "description": "Created an alternatives system to find multiple configurations per model.",
+      "changes": []
+    },
+    {
       "version": "0.0.2-alpha",
       "date": "2013-08-06",
       "description": "Updated values table to include the target primary key(s) and implemented form rendering.",
