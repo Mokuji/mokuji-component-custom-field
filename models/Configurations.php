@@ -6,6 +6,9 @@ class Configurations extends \dependencies\BaseModel
   protected static
     $table_name = 'custom_field_configurations';
   
+  protected
+    $is_mixed = false;
+  
   #TODO
   public static function find($component_name, $model_name, $alternative=null)
   {
@@ -16,7 +19,7 @@ class Configurations extends \dependencies\BaseModel
       ->where('alternative', $alternative === null ? 'NULL' : "'$alternative'")
       ->execute_single()
       
-      ->is('empty', function($cfg)use($component_name, $model_name){
+      ->is('empty', function($cfg)use($component_name, $model_name, $alternative){
         
         //When creating a new one, validate this model exists.
         //Note: we don't do this when retrieving. For archiving purposes when components update.
@@ -27,22 +30,44 @@ class Configurations extends \dependencies\BaseModel
           throw new \exception\Programmer('Could not find for model "'.$component_name.'.'.$model_name.'" it does not exist.');
         }
         
-        return $cfg->set(
-          mk('Sql')->model('custom_field', 'Configurations')
-            ->merge(array(
-              'component_name' => $component_name,
-              'model_name' => $model_name,
-              'alternative' => $alternative === null ? 'NULL' : "'$alternative'"
-            ))
-            ->save()
-        );
+        return mk('Sql')
+          ->model('custom_field', 'Configurations')
+          ->merge(array(
+            'component_name' => $component_name,
+            'model_name' => $model_name,
+            'alternative' => $alternative === null ? 'NULL' : $alternative
+          ))
+          ->save();
         
       });
     
   }
   
   #TODO
-  public function configure($definition)
+  public function mix_alternative($alternative)
+  {
+    
+    $alt = $this::find($this->component_name, $this->model_name, $alternative);
+    
+    //Get the current fields.
+    $fields = $this->fields;
+    
+    //Every field that isn't already defined is now inserted.
+    foreach($alt->fields as $key => $field)
+      if(!$fields->{$key}->is_set())
+        $fields->{$key}->set($field);
+    
+    //Set the merged fields.
+    $this->fields->set($fields);
+    
+    //Mark this config as mixed.
+    $this->is_mixed = true;
+    return $this;
+    
+  }
+  
+  #TODO
+  public function configure($definition, $validate_only=false)
   {
     
     //Try decode the supplied JSON.
@@ -117,10 +142,13 @@ class Configurations extends \dependencies\BaseModel
       
     }
     
-    $this->field_definition->set(json_encode($definition));
+    $this->field_definition->set(json_encode($definition, JSON_PRETTY_PRINT));
     $this->fields->set($this->get_fields()); //Set this so that caches don't confuse you.
     
-    return $this->save();
+    if($validate_only === true)
+      return $this;
+    else
+      return $this->save();
     
   }
   
@@ -162,8 +190,12 @@ class Configurations extends \dependencies\BaseModel
     
     //Prepare PK string.
     raw($pks);
-    ksort($pks);
-    $pks_string = json_encode($pks);
+    if(is_array($pks)) {
+      ksort($pks);
+      $pks_string = json_encode($pks);
+    } else {
+      $pks_string = (string)$pks;
+    }
     
     return mk('Sql')
       ->table('custom_field', 'Values')
@@ -185,8 +217,12 @@ class Configurations extends \dependencies\BaseModel
     
     //Prepare PK string.
     raw($pks);
-    ksort($pks);
-    $pks_string = json_encode($pks);
+    if(is_array($pks)) {
+      ksort($pks);
+      $pks_string = json_encode($pks);
+    } else {
+      $pks_string = (string)$pks;
+    }
     
     //Loop the fields.
     $value_models = array();
@@ -246,7 +282,7 @@ class Configurations extends \dependencies\BaseModel
   }
   
   #TODO
-  public function render_fields($form_id)
+  public function render_fields($form_id, $defaults=array())
   {
     
     $fields = array();
@@ -255,6 +291,9 @@ class Configurations extends \dependencies\BaseModel
       'text' => '\\dependencies\\forms\\TextAreaField',
       'checkbox' => '\\dependencies\\forms\\CheckboxField'
     );
+    
+    $model = $this->target_model;
+    $model->merge($defaults);
     
     foreach($this->fields as $field){
       
@@ -268,7 +307,7 @@ class Configurations extends \dependencies\BaseModel
       $field_obj = new $classes[$field->type->get('string')](
         $field->key->get('string'),
         $field->preferred_label->get('string'),
-        $this->target_model,
+        $model,
         $options
       );
       

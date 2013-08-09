@@ -25,10 +25,17 @@ class Json extends \dependencies\BaseComponent
       https://github.com/Tuxion/mokuji/wiki/Json.php
     
   */
- 
- public function create_test($data, $params)
- {
-    return array($data, $params);
- }
+  
+  public function create_test_configuration($data, $params)
+  {
+    
+    mk('Sql')->model('custom_field', 'Configurations')
+      ->configure($data->configuration, true);
+    
+    return array(
+      'success' => true
+    );
+    
+  }
   
 }
