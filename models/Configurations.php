@@ -241,10 +241,12 @@ class Configurations extends \dependencies\BaseModel
           break;
         
         case 'checkbox':
+          mk('Logging')->log('custom_field', 'Checkbox set', $value->dump());
           $value->validate($field->preferred_label->get(), $field->required->get('boolean') ?
             array('required', 'boolean') :
             array('boolean')
           );
+          $value->set($value->is_true() ? 'true' : 'false');
           break;
       }
       
